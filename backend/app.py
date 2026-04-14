@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
@@ -7,7 +8,6 @@ from tensorflow.keras.models import load_model
 app = Flask(__name__)
 CORS(app)
 
-# Load trained model
 model = load_model("model.h5")
 
 IMG_SIZE = 128
@@ -17,14 +17,12 @@ def preprocess_image(file):
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5,5), 0)
-    edges = cv2.Canny(blur, 50, 150)
+    gray = gray / 255.0
+    gray = gray.reshape(IMG_SIZE, IMG_SIZE, 1)
 
-    edges = edges / 255.0
-    edges = edges.reshape(IMG_SIZE, IMG_SIZE, 1)
-
-    return edges
+    return gray
 
 @app.route("/")
 def home():
@@ -39,8 +37,9 @@ def predict():
         img = np.expand_dims(img, axis=0)
 
         prediction = model.predict(img)[0][0]
+        print("Prediction:", prediction)
 
-        result = "Real Banknote ✅" if prediction > 0.5 else "Fake Banknote ❌"
+        result = "Real Banknote ✅" if prediction > 0.6 else "Fake Banknote ❌"
 
         return jsonify({"result": result})
 
@@ -48,4 +47,5 @@ def predict():
         return jsonify({"error": str(e)})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
